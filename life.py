@@ -1,4 +1,4 @@
-import yaml, os, time, random
+import yaml, os, time, random, numpy as np
 
 class animal(object):
     """Animal object expects to receive the world object and

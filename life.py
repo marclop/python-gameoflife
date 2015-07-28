@@ -1,4 +1,4 @@
-import yaml, os, time, random, numpy as np
+import yaml, os, time, random, pprint ,numpy as np
 
 class animal(object):
     """Animal object expects to receive the world object and
@@ -67,17 +67,47 @@ class world(object):
         for item in self.plantList:
             print item.showPos()
 
+    ## Check if possible to compute
+    def checkPossible(self, plants, animals):
+        if (self.height * self.width) <= animals or self.height * self.width <= plants:
+            return False
+        elif self.height * self.width <= (animals + plants):
+            return False
+        else:
+            return True
+
+    def displayField(self):
+        field = np.zeros((self.height, self.width), dtype=np.str)
+        # Map
+        translation = {'':' '}
+
+        # Translate
+        field = np.vectorize(translation.get)(field)
+
+        for y in xrange(self.height):
+            for x in xrange(self.width):
+
+                for value in self.animalList:
+                    if value.showPos() == [y,x]:
+                        field[y][x] = value.drawSymbol()
+
+                for value in self.plantList:
+                    if value.showPos() == [y,x]:
+                        field[y][x] = value.drawSymbol()
+
+        return field
+
     def placePlants(self, worldName, number):
         for count in xrange(number):
-            height = random.randint(0,number-1)
-            width = random.randint(0,number-1)
+            height = random.randint(0,self.height-1)
+            width = random.randint(0,self.width-1)
             list = [height,width]
             if self.plantList:
                 for value in self.plantList:
                     while list == value.showPos():
                         #print "plant overwrite %s" % list
-                        height = random.randint(0,number-1)
-                        width = random.randint(0,number-1)
+                        height = random.randint(0,self.height-1)
+                        width = random.randint(0,self.width-1)
                         list = [height,width]
 
             x = plant(worldName, [height, width])
@@ -85,24 +115,24 @@ class world(object):
 
     def placeAnimals(self, worldName, number):
         for count in xrange(number):
-            height = random.randint(0,number-1)
-            width = random.randint(0,number-1)
+            height = random.randint(0,self.height-1)
+            width = random.randint(0,self.width-1)
 
             list = [height,width]
             if self.plantList:
                 for value in self.plantList:
                     while list == value.showPos():
                         #print "animal overwrite %s" % list
-                        height = random.randint(0,number-1)
-                        width = random.randint(0,number-1)
+                        height = random.randint(0,self.height-1)
+                        width = random.randint(0,self.width-1)
                         list = [height,width]
 
             if self.animalList:
                 for value in self.animalList:
                     while list == value.showPos():
                         #print "animal-animal overwrite %s" % list
-                        height = random.randint(0,number-1)
-                        width = random.randint(0,number-1)
+                        height = random.randint(0,self.height-1)
+                        width = random.randint(0,self.width-1)
                         list = [height,width]
 
             x = animal(worldName, [height, width])
@@ -110,18 +140,22 @@ class world(object):
 
 
 class plant(object):
-    """docstring for plant"""
+    """Plant object expects to receive the world object and
+    the possition of the animal as an array"""
     def __init__(self, world, pos = []):
-        self.symbol = 'P'
-        self.eaten = False
+        self.__symbol = 'P'
+        self.alive = True
         self.__world = world
         self.__pos = pos
 
     def eaten(self):
-        self.eaten = True
+        self.alive = False
 
     def showPos(self):
         return self.__pos
+
+    def drawSymbol(self):
+        return self.__symbol
 
 ## Config Loader
 def parseCreds(filename):
@@ -131,7 +165,7 @@ def parseCreds(filename):
     return config
 
 ## Generate a field with the height and width desired
-def generateField(height, width, plants, animals):
+"""def generateField(height, width, plants, animals):
     print ("Number of plants is %02d" % plants)
     print ("Number of animals is %02d" % animals)
     print ("Rains: True" + "\n")
@@ -141,28 +175,33 @@ def generateField(height, width, plants, animals):
                 print('- ')
             else:
                 print('- '),
+"""
 
-## Check if possible to compute
-def checkPossible(height, width, plants, animals):
-    if (height * width) <= animals or height * width <= plants:
-        return False
-    elif height * width <= (animals + plants):
-        return False
-    else:
-        return True
 
 ## Main execution function
 def main():
-    config = parseCreds('config.yml')
+    ## Numpy print options
+    np.set_printoptions(threshold='nan')
 
+    config = parseCreds('config.yml')
+    
     earth = world(config['height'], config['width'])
+
+    ## Check if possible to compute
+    if not earth.checkPossible(config['plants'], config['animals']):
+        print ('Impossible to compute %s plants and %s animals in a %s x %s world' % (config['plants'], config['animals'], config['height'], config['width']))
+        return False
+
     earth.placePlants(earth, config['plants'])
     earth.placeAnimals(earth, config['animals'])
 
-    print "Animals"
-    earth.displayAnimals()
-    print "Plants"
-    earth.displayPlants()
+    #print "Animals"
+    #earth.displayAnimals()
+    #print "Plants"
+    #earth.displayPlants()
+
+    print "Field"
+    print earth.displayField()
 
 
 

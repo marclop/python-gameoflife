@@ -2,4 +2,5 @@
 width: 10
 height: 10
 animals: 20
-plants: 20
+plants: 40
+timer: 1

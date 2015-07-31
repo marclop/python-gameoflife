@@ -1,4 +1,4 @@
-import yaml, os, time, random, pprint, numpy as np
+import yaml, os, time, random, uuid, numpy as np
 
 
 class bcolors:
@@ -17,25 +17,50 @@ class animal(object):
     the possition of the animal as an array"""
 
     def __init__(self, world, pos=[]):
-        self.__liveTurns = 3
+        self.__liveTurns = 10
         self.__eatHealth = 1
+        self.__id = uuid.uuid4()
         self.__symbol = 'A'
         self.__alive = True
         self.__pos = pos
         self.__world = world
         self.__moveDown = None
-        self.__moverRight = None
+        self.__moveRight = None
+        self.__stayStill = False
 
     def move(self):
-        movement = random.randint(0, 2)
-        print "movement is %s" % movement
-        ## Random movement 1 is Vertical
-        if movement == 0:
-            pass
-        elif movement == 1:
-            self.__pos[0] = random.randrange(0, (self.__world.height), 1)
-        else:
-            self.__pos[1] = random.randrange(0, (self.__world.width), 1)
+        # Stay or move
+        self.__stayStill = bool(random.getrandbits(1))
+        self.__moveRight = bool(random.getrandbits(1))
+        self.__moveDown = bool(random.getrandbits(1))
+
+        if not self.__stayStill:
+            if self.__moveRight:
+                self.__pos[1] += 1
+            else:
+                self.__pos[1] -= 1
+
+            if self.__moveDown:
+                self.__pos[0] += 1
+            else:
+                self.__pos[0] -= 1
+
+        # Implement boundary correction
+        # Y correction
+        if self.__pos[0] == self.__world.height:
+            # random go back
+            if bool(random.getrandbits(1)):
+                self.__pos[0] -= 2
+            else:
+                self.__pos[0] -= 1
+
+        # X correction
+        if self.__pos[1] == self.__world.width:
+            # random go back
+            if bool(random.getrandbits(1)):
+                self.__pos[1] -= 2
+            else:
+                self.__pos[1] -= 1
 
     def showPos(self):
         return self.__pos
@@ -43,14 +68,20 @@ class animal(object):
     def drawSymbol(self):
         return self.__symbol
 
-    def reproduce(self):
-        pass
+    def age(self):
+        self.__liveTurns -= 1
+
+    def showId(self):
+        return self.__id
 
     def isAlive(self):
         return self.__alive
 
+    def getAge(self):
+        return self.__liveTurns
+
     def eat(self):
-        pass
+        self.__liveTurns += 1
 
 
 class plant(object):
@@ -95,7 +126,7 @@ class world(object):
         return self.__days
 
     def __setRain(self, rain):
-        if rain == True:
+        if rain:
             self.__rain = True
         else:
             self.__rain = False
@@ -110,7 +141,25 @@ class world(object):
         for item in self.plantList:
             print item.showPos()
 
-    ## Check if possible to compute
+    def purgeField(self):
+
+        for a in self.animalList:
+            for p in self.plantList:
+                # Eat plants
+                if p.showPos() == a.showPos():
+                    p.getEaten()  # Plant gets eaten
+                    a.eat()  # animal eats
+                    self.plantList.remove(p)
+
+        # Check duplicates (reproductions)
+        for b in self.animalList:
+            if a.showPos() == b.showPos() and a.showId() != b.showId():
+                # print "duplicate %s ID %s" % (a.showPos(), a.showId())
+                # print "duplicate %s ID %s" % (b.showPos(), b.showId())
+                self.placeAnimals(self, 1, False, b.showPos())
+                # time.sleep(1)
+
+                # Check if possible to compute
     def checkPossible(self, plants, animals):
         if (self.height *
                 self.width) <= animals or self.height * self.width <= plants:
@@ -123,7 +172,7 @@ class world(object):
     def displayField(self):
         field = np.zeros((self.height, self.width), dtype=np.str)
         # Map
-        translation = {'': ' '}
+        translation = {'': '-'}
 
         # Translate
         field = np.vectorize(translation.get)(field)
@@ -139,7 +188,8 @@ class world(object):
                     if value.showPos() == [y, x]:
                         field[y][x] = value.drawSymbol()
 
-        return field
+        return str(field).replace('[[', ' ').replace(']', '').replace(
+            '[', '').replace("'", "")
 
     def placePlants(self, worldName, number):
         for count in xrange(number):
@@ -149,7 +199,6 @@ class world(object):
             if self.plantList:
                 for value in self.plantList:
                     while list == value.showPos():
-                        #print "plant overwrite %s" % list
                         height = random.randint(0, self.height - 1)
                         width = random.randint(0, self.width - 1)
                         list = [height, width]
@@ -157,7 +206,6 @@ class world(object):
             if self.animalList:
                 for value in self.animalList:
                     while list == value.showPos():
-                        #print "animal-animal overwrite %s" % list
                         height = random.randint(0, self.height - 1)
                         width = random.randint(0, self.width - 1)
                         list = [height, width]
@@ -165,48 +213,84 @@ class world(object):
             x = plant(worldName, [height, width])
             self.plantList.append(x)
 
-    def placeAnimals(self, worldName, number):
+    def placeAnimals(self, worldName, number, rand=True, xy=[]):
         for count in xrange(number):
-            height = random.randint(0, self.height - 1)
-            width = random.randint(0, self.width - 1)
+            if rand:
+                height = random.randint(0, self.height - 1)
+                width = random.randint(0, self.width - 1)
+            else:
+                height = random.randint(xy[0] - 1, xy[0] + 2)
+                width = random.randint(xy[1] - 1, xy[1] + 2)
 
             list = [height, width]
-            if self.plantList:
-                for value in self.plantList:
-                    while list == value.showPos():
-                        #print "animal overwrite %s" % list
-                        height = random.randint(0, self.height - 1)
-                        width = random.randint(0, self.width - 1)
-                        list = [height, width]
 
-            if self.animalList:
-                for value in self.animalList:
-                    while list == value.showPos():
-                        #print "animal-animal overwrite %s" % list
-                        height = random.randint(0, self.height - 1)
-                        width = random.randint(0, self.width - 1)
+            exit = False
+            if self.plantList:
+                while not exit:
+                    for p in self.plantList:
+                        if list == p.showPos():
+                            if rand:
+                                height = random.randint(0, self.height - 1)
+                                width = random.randint(0, self.width - 1)
+                            else:
+                                height = random.randint(xy[0] - 1, xy[0] + 2)
+                                width = random.randint(xy[1] - 1, xy[1] + 2)
                         list = [height, width]
+                        exit = False
+                    else:
+                        exit = True
+
+                if self.animalList:
+                    while not exit:
+                        for a in self.animalList:
+                            if list == a.showPos():
+                                if rand:
+                                    height = random.randint(0, self.height - 1)
+                                    width = random.randint(0, self.width - 1)
+                                else:
+                                    height = random.randint(xy[0] - 1,
+                                                            xy[0] + 2)
+                                    width = random.randint(xy[1] - 1,
+                                                           xy[1] + 2)
+                            list = [height, width]
+                            exit = False
+                        else:
+                            exit = True
 
             x = animal(worldName, [height, width])
+            # if not rand:
+            # print "[%s, %s]" % (height, width)
             self.animalList.append(x)
 
     def spinWorld(self):
-        ## Make it rain
+        # Make it rain
         if self.__rain:
             self.placePlants(self, 1)
 
-        ## Random rain
+        # Random rain
         if bool(random.getrandbits(1)):
             self.__setRain(True)
         else:
             self.__setRain(False)
 
-        ## Add a day and return
+        # Move all the animals
+        for a in self.animalList:
+
+            a.move()  # Move animal
+
+            self.purgeField()  # purge the field (duplicates and eaten)
+
+            a.age()
+            if a.getAge() == 0:
+                # Kill old animals
+                self.animalList.remove(a)
+
+        # Add a day and return
         self.__days += 1
         return self.__days
 
 
-## Config Loader
+# Config Loader
 def parseCreds(filename):
     with open(filename, 'r') as conf:
         config = yaml.load(conf)
@@ -214,18 +298,19 @@ def parseCreds(filename):
     return config
 
 
-## Main execution function
+# Main execution function
 def main():
-    ## Numpy print options
+    # Numpy print options
     np.set_printoptions(threshold='nan')
+    fmt = "%s"
 
-    ## Load yaml
+    # Load yaml
     config = parseCreds('config.yml')
 
-    ## Initialize Earth
+    # Initialize Earth
     earth = world(config['height'], config['width'])
 
-    ## Check if possible to compute
+    # Check if possible to compute
     if not earth.checkPossible(config['plants'], config['animals']):
         print(
             'Impossible to compute %s plants and %s animals in a %s x %s world'
@@ -233,12 +318,12 @@ def main():
                config['width']))
         return False
 
-    ## Initialize World with plants definped in YAML
+    # Initialize World with plants definped in YAML
     earth.placePlants(earth, config['plants'])
     earth.placeAnimals(earth, config['animals'])
 
     while True:
-        time.sleep(1.5)
+        time.sleep(config['timer'])
         os.system('clear')
         print "Marc's world"
         print "============="
